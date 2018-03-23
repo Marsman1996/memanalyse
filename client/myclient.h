@@ -245,12 +245,12 @@ typedef struct _malloc_entry_t {
 typedef struct _ins_ref_t {
     app_pc pc;
     int opcode;
+    int pc_count;
     int iswrite;
     int size;
     app_pc addr;
     app_pc esp;
     app_pc ebp;
-
 } ins_ref_t;
 
 typedef struct {
@@ -269,9 +269,9 @@ enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
-static reg_id_t tls_seg;
-static uint     tls_offs;
-static int      tls_idx;
+static reg_id_t tls_seg, reg_pc_count;
+static uint     tls_offs, reg_pc_offs;
+static int      tls_idx, reg_pc_idx;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
 #define BUF_PTR(tls_base) *(ins_ref_t **)TLS_SLOT(tls_base, INSTRACE_TLS_OFFS_BUF_PTR)
 

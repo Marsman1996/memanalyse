@@ -18,9 +18,21 @@
     <ClCompile Include="..\analyse.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\shadow.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\analyse.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\alloc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shadow.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\utils.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

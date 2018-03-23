@@ -108,6 +108,11 @@ static void hook_alloc_post(void *wrapcxt, void *user_data){
 
         handle_free_post(data);
 
+        opnd_t pc_count;
+        pc_count = dr_raw_tls_opnd(drcontext, reg_pc_count, reg_pc_offs + INSTRACE_TLS_OFFS_BUF_PTR);
+        //pc_count = dr_get_dr_segment_base(reg_pc_count);
+        dr_fprintf(STDERR, "pc_count is %u \n", opnd_get_immed_int(pc_count));
+
         print_for_test(data->ptr);
     }
     else if(possible->type == HEAP_ROUTINE_MALLOC){
@@ -166,7 +171,7 @@ static void hook_alloc_pre(void *wrapcxt, INOUT void **user_data){
     if(possible->type == HEAP_ROUTINE_FREE){
         data->ptr = (app_pc)drwrap_get_arg(wrapcxt, 0);
         dr_fprintf(STDERR, "ptr is 0x%08x \n", data->ptr);
-
+        
         drwrap_set_arg(wrapcxt, 0, (void *)(data->ptr - REDZONE_SIZE));
     }
     else if(possible->type == HEAP_ROUTINE_MALLOC){
@@ -549,17 +554,19 @@ instrace(void *drcontext){
     per_thread_t *data;
     ins_ref_t *ins_ref, *buf_ptr;
 
+    //dr_fprintf(STDERR, "In trace\n");
     data    = drmgr_get_tls_field(drcontext, tls_idx);
     buf_ptr = BUF_PTR(data->seg_base);
     for (ins_ref = (ins_ref_t *)data->buf_base; ins_ref < buf_ptr; ins_ref++) {
-        fprintf(data->logf, "%d 0x%08x %08s %d 0x%08x 0x%08x 0x%08x\n",
+        fprintf(data->logf, "%d 0x%08x %8s %d 0x%08x 0x%08x 0x%08x %d\n",
                 ins_ref->iswrite,
                 (ptr_uint_t)ins_ref->pc,
                 decode_opcode_name(ins_ref->opcode),
                 ins_ref->size,
                 (ptr_uint_t)ins_ref->addr,
                 (ptr_uint_t)ins_ref->esp,
-                (ptr_uint_t)ins_ref->ebp);
+                (ptr_uint_t)ins_ref->ebp,
+                ins_ref->pc_count);
         data->num_refs++;
     }
     BUF_PTR(data->seg_base) = data->buf_base;
@@ -601,6 +608,25 @@ insert_save_opcode(void *drcontext, instrlist_t *ilist, instr_t *where,
             XINST_CREATE_store_2bytes(drcontext,
                                       OPND_CREATE_MEM16(base,
                                                         offsetof(ins_ref_t, opcode)),
+                                      opnd_create_reg(scratch)));
+}
+
+static void
+insert_save_pc_count(void *drcontext, instrlist_t *ilist, instr_t *where,
+                   reg_id_t base, reg_id_t scratch){
+    scratch = reg_resize_to_opsz(scratch, OPSZ_4);
+    dr_insert_read_raw_tls(drcontext, ilist, where, reg_pc_count,
+                           reg_pc_offs + INSTRACE_TLS_OFFS_BUF_PTR, scratch);
+    MINSERT(ilist, where,
+            XINST_CREATE_add(drcontext,
+                             opnd_create_reg(scratch),
+                             OPND_CREATE_INT32(1)));
+    dr_insert_write_raw_tls(drcontext, ilist, where, reg_pc_count,
+                            reg_pc_offs + INSTRACE_TLS_OFFS_BUF_PTR, scratch);
+    MINSERT(ilist, where,
+            XINST_CREATE_store(drcontext,
+                                      OPND_CREATE_MEM32(base,
+                                                        offsetof(ins_ref_t, pc_count)),
                                       opnd_create_reg(scratch)));
 }
 
@@ -704,6 +730,7 @@ instrument_instr(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t tar
     insert_save_ebp(drcontext, ilist, where, reg_ptr, reg_tmp);
     insert_save_opcode(drcontext, ilist, where, reg_ptr, reg_tmp, 
                     instr_get_opcode(where));
+    insert_save_pc_count(drcontext, ilist, where, reg_ptr, reg_tmp);
     insert_save_size(drcontext, ilist, where, reg_ptr, reg_tmp, 
                     drutil_opnd_mem_size_in_bytes(tar, where));
     if(iswrite == 1){
@@ -751,10 +778,10 @@ event_app_instruction(  void *drcontext, void *tag, instrlist_t *bb,
     }
     
     /* insert code once per bb to call clean_call for processing the buffer */
-    if (drmgr_is_first_instr(drcontext, instr)
-        IF_AARCHXX(&& !instr_is_exclusive_store(instr)))
+    if (drmgr_is_first_instr(drcontext, instr) IF_AARCHXX(&& !instr_is_exclusive_store(instr))){
         dr_insert_clean_call(drcontext, bb, instr, (void *)clean_call, false, 0);
 
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -815,5 +842,13 @@ DR_EXPORT void dr_init(client_id_t id){
     mutex = dr_mutex_create();
     if (!dr_raw_tls_calloc(&tls_seg, &tls_offs, INSTRACE_TLS_COUNT, 0))
         DR_ASSERT(false);
+    if (!dr_raw_tls_calloc(&reg_pc_count, &reg_pc_offs, INSTRACE_TLS_COUNT, 0))
+        DR_ASSERT(false);
+    // int *count ;
+    // count = dr_get_dr_segment_base(reg_pc_count);
+    // *(count + reg_pc_offs) = 2; 
+    // dr_fprintf(STDERR, "%d\n", *(count + reg_pc_offs));
+    dr_fprintf(STDERR, "%d\n", reg_pc_offs);
+
     shadow_init();
 }

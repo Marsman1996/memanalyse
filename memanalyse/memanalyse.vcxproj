@@ -85,6 +85,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -117,9 +118,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\analyse.c" />
+    <ClCompile Include="..\shadow.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\alloc.h" />
     <ClInclude Include="..\analyse.h" />
+    <ClInclude Include="..\shadow.h" />
+    <ClInclude Include="..\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
