@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>
 #include "utils.h"
 
 #define APP_BLOCK_BITS 16
@@ -27,6 +28,8 @@
 #define SHADOW_DWORD_REDZONE       0xaa
 
 #define SHADOW_TABLE_INDEX(addr) ((uint32_t)(addr) >> APP_BLOCK_BITS)
+
+#define MAX_STACK 512
 
 typedef struct {
     byte *start;
