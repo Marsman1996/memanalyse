@@ -1,0 +1,6 @@
+a32.out 0x08048000 0x0804b000 ../test/a32.out
+libmyclient.so 0xf752b000 0xf7577000 ../lib/libmyclient.so
+ld-linux.so.2 0xf7578000 0xf759a000 ../lib/ld-2.19.so
+linux-gate.so.1 0xf759e000 0xf759f000 [vdso]
+libdynamorio.so 0xf75a0000 0xf7755000 ../lib/libdynamorio.so
+libc.so.6 0xf7111000 0xf72c2000 ../lib/libc-2.19.so

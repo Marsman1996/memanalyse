@@ -35,7 +35,7 @@ void shadow_block_replace(app_pc app_block_base){//输入app_block
     uint32_t idx;
 
     if(shadow_is_in_default_block(shadow_table_app_to_shadow((uint32_t)app_block_base))){
-        printf("shadow_block_replace: I'm replace\n");
+        //printf("shadow_block_replace: I'm replace\n");
         block = shadow_block_create();
         memset(block, shadow_map->default_value, shadow_map->shadow_block_size);
         idx = SHADOW_TABLE_INDEX(app_block_base);
@@ -147,7 +147,9 @@ void shadow_write_range(app_pc app_start, app_pc app_end, uint32_t val){
 
 void shadow_init(){
     shadow_map = (map_t *)malloc(sizeof(map_t));
-    assert(shadow_map != NULL);
+    if(shadow_map == NULL){
+        assert(false);
+    }
 
     memset(shadow_map, 0, sizeof(*shadow_map));
     shadow_map->shift = 2;
@@ -165,7 +167,7 @@ void shadow_init(){
 
     //建立default块
     block_start = (byte *)malloc(shadow_map->shadow_block_size);
-    printf("default block start is 0x%08x\n", block_start);
+    // printf("default block start is 0x%08x\n", block_start);
     memset(block_start, shadow_map->default_value, shadow_map->shadow_block_size);
     
     shadow_map->default_block.start = block_start;
@@ -237,36 +239,86 @@ void print_for_test(app_pc ptr){
 
 //TODO:完善check read和check write
 static app_pc eip_store;
-static int eip_stack[MAX_STACK] = {0};
+static app_pc eip_stack[MAX_STACK] = {0};
 static app_pc real_ebp;
-static int ebp_stack[MAX_STACK] = {0};
+static app_pc ebp_stack[MAX_STACK] = {0};
 static app_pc last_esp;
 static app_pc last_ebp;
 
-void shadow_is_in_eip(app_pc app_addr, uint32_t size){
-
-}
-
-void shadow_is_in_stack(){
-
-}
-
-void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp){
-    //handle eip
-    if(strcmp(instr, "call")){
-        eip_stack[0]++;
-        eip_stack[eip_stack[0]] = app_addr;
+bool shadow_is_in_eip(app_pc app_addr){
+    int i;
+    for (i = 0; i < (int)eip_stack[0]; i++) {
+        int idx = (int)eip_stack[0] - i;
+        if (app_addr >= eip_stack[idx] && app_addr < eip_stack[idx] + 4)
+            return true;
     }
-    if(strcmp(instr, "ret")){
+    return false;
+}
+
+void shadow_check_read(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp, uint32_t pc_count){
+    uint32_t i;
+    uint32_t shadow_value;
+    
+    for(i = 0; i < size; i++){
+        if (app_addr > real_esp && app_addr <= real_ebp) {
+            continue;
+        }
+        shadow_value = shadow_get_byte(app_addr + i);
+        if(shadow_value == SHADOW_REDZONE){//读越界
+            assert(false);
+        }
+        if(shadow_value == SHADOW_UNADDRESSABLE || shadow_value == SHADOW_UNDEFINED){
+            assert(false);
+        }
+    }
+}
+
+void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp, uint32_t pc_count){
+    uint32_t i;
+    uint32_t shadow_value;
+    
+    for(i = 0; i < size; i++){
+        if (app_addr > real_esp - 4 && app_addr <= real_ebp) {
+            if (shadow_is_in_eip(app_addr)){
+
+                assert(false);
+            }
+            else
+                continue;
+        }
+
+        if (shadow_is_in_special_block(app_addr + i))
+            assert(false);
+        
+        shadow_value = shadow_get_byte(app_addr + i);
+        if (shadow_value == SHADOW_UNADDRESSABLE){
+            assert(false);
+        }
+        else if (shadow_value == SHADOW_REDZONE){//写越界
+            assert(false);
+        }
+        else if (shadow_value == SHADOW_UNDEFINED){
+            shadow_block_write_byte(app_addr + i, SHADOW_DEFINED);
+        }
+    }
+}
+
+void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, uint32_t pc_count){
+    //handle eip
+    if(strcmp(instr, "call") == 0){
+        eip_stack[0]++;
+        eip_stack[(int)eip_stack[0]] = app_addr;
+    }
+    if(strcmp(instr, "ret") == 0){
         eip_stack[0]--;
     }
     //handle ebp
     if(ebp == esp){
         ebp_stack[0]++;
-        ebp_stack[ebp_stack[0]] = real_ebp;
+        ebp_stack[(int)ebp_stack[0]] = real_ebp;
         real_ebp = ebp;
     }
-    else if(ebp == ebp_stack[ebp_stack[0]]){
+    else if(ebp == ebp_stack[(int)ebp_stack[0]]){
         ebp_stack[0]--;
         real_ebp = ebp;
     }
@@ -281,46 +333,13 @@ void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t s
     //         shadow_write_range(esp - 1, last_esp, SHADOW_UNDEFINED);            
     // }
     //check
-
+    if (write == 1)
+        shadow_check_write(app_addr, size, esp, real_ebp, pc_count);
+    else if (write == 0)
+        shadow_check_read(app_addr, size, esp, real_ebp, pc_count);
+    else
+        assert(false);
     //记录esp ebp
     last_esp = esp;
     last_ebp = real_ebp;
-}
-
-void shadow_check_read(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp){
-    int i;
-    uint32_t shadow_value;
-    
-    for(i = 0; i < size; i++){
-        if(app_addr >= real_esp && app_addr <= real_ebp)
-            continue;
-        shadow_value = shadow_get_byte(app_addr + i);
-        if(shadow_value == SHADOW_REDZONE){//读越界
-            DR_ASSERT(false);
-        }
-        if(shadow_value == SHADOW_UNADDRESSABLE || shadow_value == SHADOW_UNDEFINED){
-            DR_ASSERT(false);
-        }
-    }
-}
-
-void shadow_check_write(app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, app_pc eip){
-    int i;
-    uint32_t shadow_value;
-    
-    for(i = 0; i < size; i++){
-        if(shadow_is_in_special_block(app_addr + i))
-            DR_ASSERT(false);
-        
-        shadow_value = shadow_get_byte(app_addr + i);
-        if(shadow_value == SHADOW_UNADDRESSABLE){
-            DR_ASSERT(false);
-        }
-        else if(shadow_value == SHADOW_REDZONE){//写越界
-            DR_ASSERT(false);
-        }
-        else if(shadow_value == SHADOW_UNDEFINED){
-            shadow_block_write_byte(app_addr + i, SHADOW_DEFINED);
-        }
-    }
 }

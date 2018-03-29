@@ -117,6 +117,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\alloc.c" />
     <ClCompile Include="..\analyse.c" />
     <ClCompile Include="..\shadow.c" />
   </ItemGroup>

@@ -1,0 +1,32 @@
+a32.out 0x08048000 0x0804b000 /home/ubuntu/Desktop/test/a32.out
+libmyclient.so 0xf752b000 0xf7577000 /home/ubuntu/Desktop/drmemory_code_read/dynamorio/myclient/x86_build/libmyclient.so
+ld-linux.so.2 0xf7578000 0xf759a000 /lib/i386-linux-gnu/ld-2.19.so
+linux-gate.so.1 0xf759e000 0xf759f000 [vdso]
+libdynamorio.so 0xf75a0000 0xf7755000 /home/ubuntu/Desktop/DynamoRIO-i386-Linux-7.0.17598-0/lib32/release/libdynamorio.so
+libc.so.6 0xf7111000 0xf72c2000 /lib/i386-linux-gnu/libc-2.19.so
+__libc_malloc 42799 0x0804c009 10
+TEST: 0x0804c009
+a
+e
+__libc_free 81548 0x0804c009
+---------------
+1: special block
+start is 0x08048000
+end is 0x0804b000
+2: special block
+start is 0xf752b000
+end is 0xf7577000
+3: special block
+start is 0xf7578000
+end is 0xf759a000
+4: special block
+start is 0xf759e000
+end is 0xf759f000
+5: special block
+start is 0xf75a0000
+end is 0xf7755000
+6: special block
+start is 0xf7111000
+end is 0xf72c2000
+---------------
+Client said bye-bye

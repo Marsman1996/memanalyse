@@ -1,5 +1,8 @@
 #include <stdint.h>
 
+//1 byte
+#define REDZONE_SIZE 1
+
 #define ALIGN_BACKWARD(x, alignment) \
         (((uint32_t)x) & (~((uint32_t)(alignment)-1)))
 #define ALIGN_FORWARD(x, alignment) \
