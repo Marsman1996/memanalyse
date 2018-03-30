@@ -16,18 +16,23 @@ void alloc_init(){
     entry_start->next = NULL;
 }
 
-void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_addr, char *s_size, char *s_old_addr){
+void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, char *s_addr, char *s_size, char *s_old_addr){
     alloc_link_t alloc_temp;
-    uint32_t pc_count, size; 
+    uint32_t pc_count, pc_count2, size; 
     app_pc addr, old_addr;
 
     alloc_temp = (alloc_link_t)malloc(sizeof(alloc_node_t));
     alloc_temp->next = NULL;
     strcpy(alloc_temp->routine.name, s_alloc_name);
 
+    alloc_temp->routine.is_load = false;
+
     pc_count = strtoll(s_pc_count, NULL, 10);
     alloc_temp->routine.pc_count = pc_count;
     
+    pc_count2 = strtoll(s_pc_count2, NULL, 10);
+    alloc_temp->routine.pc_count2 = pc_count2;    
+
     addr = (app_pc)strtoll(s_addr, NULL, 16);
     alloc_temp->routine.addr = addr;
     
@@ -83,7 +88,7 @@ entry_link_t entry_lookup(app_pc key){
     return NULL;
 }
 
-void handle_free(alloc_routine_t *routine){
+void handle_free_post(alloc_routine_t *routine){
     entry_link_t e;
     e = entry_lookup(routine->addr);
     if(e == NULL){
@@ -93,16 +98,16 @@ void handle_free(alloc_routine_t *routine){
     entry_remove(e->entry.start);
 }
 
-void handle_malloc(alloc_routine_t *routine){
+void handle_malloc_post(alloc_routine_t *routine){
     malloc_entry_add(routine->addr, routine->addr + routine->size);
     shadow_write_range(routine->addr, routine->addr + routine->size, SHADOW_UNDEFINED);
     shadow_block_add_redzone(routine->addr, routine->size);
 }
 
-void handle_realloc(alloc_routine_t *routine){
+void handle_realloc_post(alloc_routine_t *routine){
     //add routine->old_addr = NULL condition, 相当于malloc
     if(routine->old_addr == NULL){
-        handle_malloc(routine);
+        handle_malloc_post(routine);
         return ;
     }
     entry_link_t e;
@@ -136,34 +141,75 @@ void handle_realloc(alloc_routine_t *routine){
     entry_remove(e->entry.start);
 }
 
-void handle_calloc(alloc_routine_t *routine){
+void handle_calloc_post(alloc_routine_t *routine){
     malloc_entry_add(routine->addr, routine->addr + routine->size);
     shadow_write_range(routine->addr, routine->addr + routine->size, SHADOW_DEFINED);
     shadow_block_add_redzone(routine->addr, routine->size);
 }
 
+void handle_free_pre(alloc_routine_t *routine){
+
+}
+
+void handle_malloc_pre(alloc_routine_t *routine){
+
+}
+
+void handle_realloc_pre(alloc_routine_t *routine){
+
+}
+
+void handle_calloc_pre(alloc_routine_t *routine){
+
+}
+
 void alloc_check(uint32_t pc_count){
     alloc_link_t alloc_temp;
     alloc_temp = alloc_start->next;
-    if(alloc_temp == NULL || alloc_temp->routine.pc_count != pc_count)
+    if(alloc_temp == NULL 
+    || alloc_temp->routine.pc_count != pc_count 
+    || alloc_temp->routine.pc_count2 != pc_count)
         return ;
-    if (strcmp(alloc_temp->routine.name, "free") == 0){
-        handle_free(&(alloc_temp->routine));
+    if(alloc_temp->routine.is_load == false){
+        if (strcmp(alloc_temp->routine.name, "free") == 0){
+            handle_free_pre(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "malloc") == 0){
+            handle_malloc_pre(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "realloc") == 0){
+            handle_realloc_pre(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "calloc") == 0){
+            handle_calloc_pre(&(alloc_temp->routine));
+        }
+        else{
+            assert(false);
+        }
+        alloc_temp->routine.is_load = true;
+        return ;
     }
-    else if (strcmp(alloc_temp->routine.name, "malloc") == 0){
-        handle_malloc(&(alloc_temp->routine));
+    if(alloc_temp->routine.is_load == true){
+        if (strcmp(alloc_temp->routine.name, "free") == 0){
+            handle_free_post(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "malloc") == 0){
+            handle_malloc_post(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "realloc") == 0){
+            handle_realloc_post(&(alloc_temp->routine));
+        }
+        else if (strcmp(alloc_temp->routine.name, "calloc") == 0){
+            handle_calloc_post(&(alloc_temp->routine));
+        }
+        else{
+            assert(false);
+        }
+        print_for_test(alloc_temp->routine.addr - REDZONE_SIZE);
+        //destroy alloc_node
+        alloc_start->next = alloc_temp->next;
+        free(alloc_temp);
+        return ;
     }
-    else if (strcmp(alloc_temp->routine.name, "realloc") == 0){
-        handle_realloc(&(alloc_temp->routine));
-    }
-    else if (strcmp(alloc_temp->routine.name, "calloc") == 0){
-        handle_calloc(&(alloc_temp->routine));
-    }
-    else{
-        assert(false);
-    }
-    print_for_test(alloc_temp->routine.addr - REDZONE_SIZE);
-    //destroy alloc_node
-    alloc_start->next = alloc_temp->next;
-    free(alloc_temp);
+
 }

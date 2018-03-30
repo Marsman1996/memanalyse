@@ -87,10 +87,11 @@ void input_alloc(){
     }
     char line[100];
     char split[] = " ";
-    char *s_alloc_name, *s_pc_count, *s_addr, *s_size, *s_old_addr;
+    char *s_alloc_name, *s_pc_count, *s_pc_count2, *s_addr, *s_size, *s_old_addr;
     while(fgets(line, 100, f_alloc)){
         s_alloc_name = strtok(line, split);
         s_pc_count   = strtok(NULL, split);
+        s_pc_count2  = strtok(NULL, split);
         s_addr       = strtok(NULL, split);
         s_size       = strtok(NULL, split);
         s_old_addr   = strtok(NULL, split);
@@ -99,7 +100,7 @@ void input_alloc(){
         || strcmp(s_alloc_name, "malloc") == 0
         || strcmp(s_alloc_name, "realloc") == 0
         || strcmp(s_alloc_name, "calloc") == 0){
-            alloc_routine_in(s_alloc_name, s_pc_count, s_addr, s_size, s_old_addr);
+            alloc_routine_in(s_alloc_name, s_pc_count, s_pc_count2, s_addr, s_size, s_old_addr);
         }
         else{
             printf("no alloc routine matched");
@@ -126,6 +127,8 @@ void input_trace(){
         s_write    = strtok(line, split);
         s_pc       = strtok(NULL, split);
         s_instr    = strtok(NULL, split);
+        if(strcmp(s_instr, "rep") == 0)
+            s_instr = strtok(NULL, split);
         s_size     = strtok(NULL, split);
         s_addr     = strtok(NULL, split);
         s_esp      = strtok(NULL, split);
@@ -138,8 +141,6 @@ void input_trace(){
         esp      = (app_pc)strtoll(s_esp, NULL, 16);
         ebp      = (app_pc)strtoll(s_ebp, NULL, 16);
         pc_count = (uint32_t)strtoll(s_pc_count, NULL, 10);
-        if(pc_count == 1)//开始的时候ebp=0, 显然要调整
-            ebp = esp;
         alloc_check(pc_count);
         shadow_check(write, s_instr, addr, size, esp, ebp, pc_count);
     }

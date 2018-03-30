@@ -3,6 +3,15 @@
 map_t *shadow_map;
 static int static_shadow_table[SHADOW_TABLE_ENTRIES];
 
+void shadow_block_remove_redzone(app_pc app_addr, uint32_t app_size){
+    app_pc app_red_start, app_red_end;
+    app_red_start = app_addr - REDZONE_SIZE;
+    app_red_end = app_addr + app_size;
+
+    shadow_block_write_byte(app_red_start, SHADOW_DEFINED);
+    shadow_block_write_byte(app_red_end, SHADOW_DEFINED);
+}
+
 void shadow_block_add_redzone(app_pc app_addr, uint32_t app_size){
     app_pc app_red_start, app_red_end;
     app_red_start = app_addr - REDZONE_SIZE;
@@ -240,7 +249,6 @@ void print_for_test(app_pc ptr){
 //TODO:完善check read和check write
 static app_pc eip_store;
 static app_pc eip_stack[MAX_STACK] = {0};
-static app_pc real_ebp;
 static app_pc ebp_stack[MAX_STACK] = {0};
 static app_pc last_esp;
 static app_pc last_ebp;
@@ -260,7 +268,7 @@ void shadow_check_read(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc r
     uint32_t shadow_value;
     
     for(i = 0; i < size; i++){
-        if (app_addr > real_esp && app_addr <= real_ebp) {
+        if (app_addr >= real_esp && app_addr < real_ebp) {
             continue;
         }
         shadow_value = shadow_get_byte(app_addr + i);
@@ -278,7 +286,7 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
     uint32_t shadow_value;
     
     for(i = 0; i < size; i++){
-        if (app_addr > real_esp - 4 && app_addr <= real_ebp) {
+        if (app_addr >= real_esp - 4 && app_addr < real_ebp) {
             if (shadow_is_in_eip(app_addr)){
 
                 assert(false);
@@ -304,13 +312,11 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
 }
 
 void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, uint32_t pc_count){
-    //handle eip
-    if(strcmp(instr, "call") == 0){
-        eip_stack[0]++;
-        eip_stack[(int)eip_stack[0]] = app_addr;
-    }
-    if(strcmp(instr, "ret") == 0){
-        eip_stack[0]--;
+    static app_pc real_ebp;
+
+    if(pc_count == 1){//开始的时候ebp=0, 显然要调整
+        ebp = esp;
+        real_ebp = esp;
     }
     //handle ebp
     if(ebp == esp){
@@ -339,6 +345,14 @@ void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t s
         shadow_check_read(app_addr, size, esp, real_ebp, pc_count);
     else
         assert(false);
+    //handle eip
+    if (strcmp(instr, "call") == 0) {
+        eip_stack[0]++;
+        eip_stack[(int)eip_stack[0]] = app_addr;
+    }
+    if (strcmp(instr, "ret") == 0) {
+        eip_stack[0]--;
+    }
     //记录esp ebp
     last_esp = esp;
     last_ebp = real_ebp;

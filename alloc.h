@@ -8,7 +8,9 @@
 
 typedef struct _alloc_routine_t{
     char name[20];
+    bool is_load;
     uint32_t pc_count;
+    uint32_t pc_count2;
     app_pc addr;
     uint32_t size;
     app_pc old_addr;
@@ -34,6 +36,6 @@ typedef struct _entry_node_t{
 
 void alloc_init();
 
-void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_addr, char *s_size, char *s_old_addr);
+void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, char *s_addr, char *s_size, char *s_old_addr);
 
 void alloc_check(uint32_t pc_count);
