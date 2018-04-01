@@ -1,7 +1,10 @@
 #include "shadow.h"
+#include "alloc.h"
+#include "error.h"
 
 map_t *shadow_map;
 static int static_shadow_table[SHADOW_TABLE_ENTRIES];
+extern app_pc mmap1, mmap2, mmap3, mmap4;
 
 void shadow_block_remove_redzone(app_pc app_addr, uint32_t app_size){
     app_pc app_red_start, app_red_end;
@@ -273,10 +276,12 @@ void shadow_check_read(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc r
         }
         shadow_value = shadow_get_byte(app_addr + i);
         if(shadow_value == SHADOW_REDZONE){//读越界
-            assert(false);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            return ;
         }
         if(shadow_value == SHADOW_UNADDRESSABLE || shadow_value == SHADOW_UNDEFINED){
-            assert(false);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            return ;
         }
     }
 }
@@ -288,22 +293,25 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
     for(i = 0; i < size; i++){
         if (app_addr >= real_esp - 4 && app_addr < real_ebp) {
             if (shadow_is_in_eip(app_addr)){
-
-                assert(false);
+                error_store(app_addr, size, real_esp, real_ebp, pc_count);
+                return ;
             }
             else
                 continue;
         }
 
-        if (shadow_is_in_special_block(app_addr + i))
-            assert(false);
-        
+        if (shadow_is_in_special_block(app_addr + i)){
+            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            return ;
+        }
         shadow_value = shadow_get_byte(app_addr + i);
         if (shadow_value == SHADOW_UNADDRESSABLE){
-            assert(false);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            return ;
         }
         else if (shadow_value == SHADOW_REDZONE){//写越界
-            assert(false);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            return ;
         }
         else if (shadow_value == SHADOW_UNDEFINED){
             shadow_block_write_byte(app_addr + i, SHADOW_DEFINED);
@@ -311,7 +319,7 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
     }
 }
 
-void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, uint32_t pc_count){
+void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, uint32_t pc_count, alloc_link_t alloc_link){
     static app_pc real_ebp;
 
     if(pc_count == 1){//开始的时候ebp=0, 显然要调整
@@ -338,13 +346,53 @@ void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t s
     //     else
     //         shadow_write_range(esp - 1, last_esp, SHADOW_UNDEFINED);            
     // }
+    //暂时排除mmap(maybe)区域读写
+
+    //排除alloc操作head读写
+    bool j_mark = false;
+    if((app_addr < mmap2 && app_addr >= mmap1) 
+    || (app_addr < mmap4 && app_addr >= mmap3))
+        j_mark = true;
+    if(alloc_link != NULL && alloc_link->routine.is_load == true){
+        if(strcmp(alloc_link->routine.name, "realloc") == 0){
+            uint32_t aligned_size;
+            aligned_size = ((alloc_link->routine.size + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(alloc_link->routine.size + 2 * REDZONE_SIZE + 4), 8);
+
+            if((app_addr < 
+            alloc_link->routine.entry_link->entry.aligned_end
+            &&
+            app_addr >=
+            alloc_link->routine.entry_link->entry.aligned_start)
+            ||
+            (app_addr <
+            alloc_link->routine.addr - REDZONE_SIZE + aligned_size
+            &&
+            app_addr >=
+            alloc_link->routine.addr - REDZONE_SIZE - 4 )
+            ){
+                j_mark = true;
+            }
+        }
+        else{
+            if(app_addr < 
+            alloc_link->routine.entry_link->entry.aligned_end
+            &&
+            app_addr >=
+            alloc_link->routine.entry_link->entry.aligned_start){
+                j_mark = true;
+            }
+
+        }
+    }
     //check
-    if (write == 1)
-        shadow_check_write(app_addr, size, esp, real_ebp, pc_count);
-    else if (write == 0)
-        shadow_check_read(app_addr, size, esp, real_ebp, pc_count);
-    else
-        assert(false);
+    if(j_mark != true){
+        if (write == 1)
+            shadow_check_write(app_addr, size, esp, real_ebp, pc_count);
+        else if (write == 0)
+            shadow_check_read(app_addr, size, esp, real_ebp, pc_count);
+        else
+            assert(false);
+    }
     //handle eip
     if (strcmp(instr, "call") == 0) {
         eip_stack[0]++;

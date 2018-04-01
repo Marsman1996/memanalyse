@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#ifndef _UTILS_H
+#define _UTILS_H
 //1 byte
 #define REDZONE_SIZE 1
 
@@ -33,3 +35,37 @@
 typedef unsigned char byte;
 typedef byte * app_pc;
 typedef uint32_t* bitmap_t;
+
+typedef struct _malloc_entry_t {
+    app_pc start;
+    //app_pc real_start;
+    app_pc end;
+    //alloc_type_t alloc_type;
+    app_pc aligned_start;
+    app_pc aligned_end;
+} malloc_entry_t;
+
+
+typedef struct _entry_node_t{
+    malloc_entry_t entry;
+    app_pc key;
+    struct _entry_node_t *next;
+} entry_node_t, *entry_link_t;
+
+typedef struct _alloc_routine_t{
+    char name[20];
+    bool is_load;
+    uint32_t pc_count;
+    uint32_t pc_count2;
+    app_pc addr;
+    uint32_t size;
+    app_pc old_addr;
+    entry_link_t entry_link;
+}alloc_routine_t;
+
+typedef struct _alloc_node_t{
+    alloc_routine_t routine;
+    struct _alloc_node_t *next;
+} alloc_node_t, *alloc_link_t;
+
+#endif

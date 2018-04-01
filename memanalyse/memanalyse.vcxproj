@@ -119,11 +119,13 @@
   <ItemGroup>
     <ClCompile Include="..\alloc.c" />
     <ClCompile Include="..\analyse.c" />
+    <ClCompile Include="..\error.c" />
     <ClCompile Include="..\shadow.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\alloc.h" />
     <ClInclude Include="..\analyse.h" />
+    <ClInclude Include="..\error.h" />
     <ClInclude Include="..\shadow.h" />
     <ClInclude Include="..\utils.h" />
   </ItemGroup>

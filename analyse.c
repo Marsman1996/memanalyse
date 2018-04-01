@@ -4,6 +4,8 @@
 
 alloc_link_t alloc_start;
 
+app_pc mmap1, mmap2, mmap3, mmap4;
+
 void input_module(){
     FILE *f_module;
     char line[100];
@@ -26,6 +28,16 @@ void input_module(){
         s_module_path   = strtok(NULL, split);
         module_start    = (app_pc)strtoll(s_module_start, NULL, 16);
         module_end      = (app_pc)strtoll(s_module_end, NULL, 16);
+
+        if(strcmp(s_module_name, "libc.so.6") == 0){
+            mmap1 = (app_pc)((uint32_t)module_start & 0xffff0000);
+            mmap2 = module_start;
+            mmap3 = module_end;
+        }
+        if(strcmp(s_module_name, "libmyclient.so") == 0){
+            mmap4 = module_start;
+        }
+
         if(strcmp(s_module_path, "[vdso]\n") == 0){
             shadow_special_block_create((app_pc)module_start, (app_pc)module_end, SHADOW_DEFINED);
             continue;
@@ -43,7 +55,7 @@ void input_module(){
 
         has_writed = 0;
         while(fgets(elf_line, 100, pipe) != NULL){
-            printf("%s\n", elf_line);
+            //printf("%s\n", elf_line);
             s_nr = strtok(elf_line, split);//nr
             if(strcmp(s_nr, "[") == 0)
                 s_nr = strtok(NULL, split);
@@ -122,6 +134,7 @@ void input_trace(){
     int write;
     app_pc pc, addr, esp, ebp;
     uint32_t size, pc_count;
+    alloc_link_t alloc_link;
     fgets(line, 100, f_trace);//remove top line
     while(fgets(line, 100, f_trace) != NULL){
         s_write    = strtok(line, split);
@@ -141,8 +154,8 @@ void input_trace(){
         esp      = (app_pc)strtoll(s_esp, NULL, 16);
         ebp      = (app_pc)strtoll(s_ebp, NULL, 16);
         pc_count = (uint32_t)strtoll(s_pc_count, NULL, 10);
-        alloc_check(pc_count);
-        shadow_check(write, s_instr, addr, size, esp, ebp, pc_count);
+        alloc_link = alloc_check(pc_count);
+        shadow_check(write, s_instr, addr, size, esp, ebp, pc_count, alloc_link);
     }
     
 }

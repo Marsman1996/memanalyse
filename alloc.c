@@ -49,13 +49,18 @@ void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, c
     alloc_ptr = alloc_temp;
 }
 
-void malloc_entry_add(app_pc start, app_pc end){
+entry_link_t malloc_entry_add(app_pc start, app_pc end){
     //alloc_type用于区分 malloc, new, new[]
     entry_link_t e = (entry_link_t)malloc(sizeof(entry_node_t));
 
     e->key = start;
     e->entry.start = start;
     e->entry.end = end;
+    // about aligned: min:16; align:8
+    uint32_t aligned_size;
+    aligned_size = ((end - start + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(end - start + 2 * REDZONE_SIZE + 4), 8);
+    e->entry.aligned_start = start - REDZONE_SIZE - 4;
+    e->entry.aligned_end   = start - REDZONE_SIZE + aligned_size;
     e->next = NULL;
     //e->alloc_type = alloc_type;
     //e->data = NULL;
@@ -63,6 +68,7 @@ void malloc_entry_add(app_pc start, app_pc end){
     for(entry_temp = entry_start; entry_temp->next != NULL; entry_temp = entry_temp->next)
         ;//找到末尾
     entry_temp->next = e;
+    return e;
 }
 
 bool entry_remove(app_pc key){
@@ -90,16 +96,13 @@ entry_link_t entry_lookup(app_pc key){
 
 void handle_free_post(alloc_routine_t *routine){
     entry_link_t e;
-    e = entry_lookup(routine->addr);
-    if(e == NULL){
-        assert(false);
-    }
+    e = routine->entry_link;
+
     shadow_write_range(e->entry.start - REDZONE_SIZE, e->entry.end + REDZONE_SIZE, SHADOW_UNADDRESSABLE);
     entry_remove(e->entry.start);
 }
 
 void handle_malloc_post(alloc_routine_t *routine){
-    malloc_entry_add(routine->addr, routine->addr + routine->size);
     shadow_write_range(routine->addr, routine->addr + routine->size, SHADOW_UNDEFINED);
     shadow_block_add_redzone(routine->addr, routine->size);
 }
@@ -110,11 +113,8 @@ void handle_realloc_post(alloc_routine_t *routine){
         handle_malloc_post(routine);
         return ;
     }
-    entry_link_t e;
-    e = entry_lookup(routine->old_addr);
-    if(e == NULL){
-        assert(false);
-    }
+    entry_link_t e = routine->entry_link;
+
     uint32_t old_size = e->entry.end - e->entry.start;
     //写new区域
     if(routine->size > old_size){//new区域大
@@ -142,34 +142,49 @@ void handle_realloc_post(alloc_routine_t *routine){
 }
 
 void handle_calloc_post(alloc_routine_t *routine){
-    malloc_entry_add(routine->addr, routine->addr + routine->size);
+    
     shadow_write_range(routine->addr, routine->addr + routine->size, SHADOW_DEFINED);
     shadow_block_add_redzone(routine->addr, routine->size);
 }
 
 void handle_free_pre(alloc_routine_t *routine){
-
+    entry_link_t e;
+    e = entry_lookup(routine->addr);
+    if(e == NULL){
+        assert(false);
+    }
+    routine->entry_link = e;
 }
 
 void handle_malloc_pre(alloc_routine_t *routine){
-
+    routine->entry_link = malloc_entry_add(routine->addr, routine->addr + routine->size);    
 }
 
 void handle_realloc_pre(alloc_routine_t *routine){
-
+    entry_link_t e;
+    e = entry_lookup(routine->old_addr);
+    if(e == NULL){
+        assert(false);
+    }
+    routine->entry_link = e;
 }
 
 void handle_calloc_pre(alloc_routine_t *routine){
-
+    routine->entry_link = malloc_entry_add(routine->addr, routine->addr + routine->size);
 }
 
-void alloc_check(uint32_t pc_count){
+alloc_link_t alloc_check(uint32_t pc_count){
     alloc_link_t alloc_temp;
     alloc_temp = alloc_start->next;
-    if(alloc_temp == NULL 
-    || alloc_temp->routine.pc_count != pc_count 
-    || alloc_temp->routine.pc_count2 != pc_count)
-        return ;
+    if(alloc_temp == NULL)
+        return NULL;
+    if(alloc_temp->routine.pc_count != pc_count 
+    && alloc_temp->routine.pc_count2 != pc_count){
+        if(alloc_temp->routine.is_load == true)
+            return alloc_temp;
+        else
+            return NULL;
+    }
     if(alloc_temp->routine.is_load == false){
         if (strcmp(alloc_temp->routine.name, "free") == 0){
             handle_free_pre(&(alloc_temp->routine));
@@ -187,7 +202,7 @@ void alloc_check(uint32_t pc_count){
             assert(false);
         }
         alloc_temp->routine.is_load = true;
-        return ;
+        return alloc_temp;
     }
     if(alloc_temp->routine.is_load == true){
         if (strcmp(alloc_temp->routine.name, "free") == 0){
@@ -209,7 +224,7 @@ void alloc_check(uint32_t pc_count){
         //destroy alloc_node
         alloc_start->next = alloc_temp->next;
         free(alloc_temp);
-        return ;
+        return NULL;
     }
 
 }
