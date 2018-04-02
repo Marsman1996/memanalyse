@@ -271,16 +271,17 @@ void shadow_check_read(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc r
     uint32_t shadow_value;
     
     for(i = 0; i < size; i++){
-        if (app_addr >= real_esp && app_addr < real_ebp) {
+        // if (app_addr >= real_esp && app_addr < real_ebp) {
+        if (app_addr >= real_esp) {
             continue;
         }
         shadow_value = shadow_get_byte(app_addr + i);
         if(shadow_value == SHADOW_REDZONE){//读越界
-            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count, 0);
             return ;
         }
         if(shadow_value == SHADOW_UNADDRESSABLE || shadow_value == SHADOW_UNDEFINED){
-            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count, 0);
             return ;
         }
     }
@@ -291,9 +292,11 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
     uint32_t shadow_value;
     
     for(i = 0; i < size; i++){
-        if (app_addr >= real_esp - 4 && app_addr < real_ebp) {
+        //if (app_addr >= real_esp - 4 && app_addr < real_ebp) {
+        if (app_addr >= real_esp - 4) {
             if (shadow_is_in_eip(app_addr)){
-                error_store(app_addr, size, real_esp, real_ebp, pc_count);
+                printf("eip corrupt %u\n", pc_count);
+                error_store(app_addr, size, real_esp, real_ebp, pc_count, 1);
                 return ;
             }
             else
@@ -301,16 +304,16 @@ void shadow_check_write(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc 
         }
 
         if (shadow_is_in_special_block(app_addr + i)){
-            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count, 1);
             return ;
         }
         shadow_value = shadow_get_byte(app_addr + i);
         if (shadow_value == SHADOW_UNADDRESSABLE){
-            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count, 1);
             return ;
         }
         else if (shadow_value == SHADOW_REDZONE){//写越界
-            error_store(app_addr, size, real_esp, real_ebp, pc_count);
+            error_store(app_addr, size, real_esp, real_ebp, pc_count, 1);
             return ;
         }
         else if (shadow_value == SHADOW_UNDEFINED){
@@ -394,11 +397,11 @@ void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t s
             assert(false);
     }
     //handle eip
-    if (strcmp(instr, "call") == 0) {
+    if (strcmp(instr, "call") == 0 && write == 1) {
         eip_stack[0]++;
         eip_stack[(int)eip_stack[0]] = app_addr;
     }
-    if (strcmp(instr, "ret") == 0) {
+    if (strcmp(instr, "ret") == 0 && app_addr == eip_stack[(int)eip_stack[0]]) {
         eip_stack[0]--;
     }
     //记录esp ebp

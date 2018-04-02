@@ -1,6 +1,7 @@
 #include "analyse.h"
 #include "shadow.h"
 #include "alloc.h"
+#include "error.h"
 
 alloc_link_t alloc_start;
 
@@ -30,7 +31,7 @@ void input_module(){
         module_end      = (app_pc)strtoll(s_module_end, NULL, 16);
 
         if(strcmp(s_module_name, "libc.so.6") == 0){
-            mmap1 = (app_pc)((uint32_t)module_start & 0xffff0000);
+            mmap1 = (app_pc)((uint32_t)module_start & 0xfff00000);
             mmap2 = module_start;
             mmap3 = module_end;
         }
@@ -175,5 +176,6 @@ int main(void){
     input_alloc();
     // input trace
     input_trace();
+    error_output();
     return 0;
 }

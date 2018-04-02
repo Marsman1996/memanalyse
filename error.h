@@ -6,7 +6,7 @@
 #include <string.h>
 #include "utils.h"
 
-#define MAX_NUM_ERROR 1024
+#define MAX_NUM_ERROR 65536
 
 typedef enum {
     DOUBLE_FREE,
@@ -22,6 +22,8 @@ typedef struct {
     app_pc real_esp; 
     app_pc real_ebp;
     uint32_t size;
+    int write;
 } error_store_t;
 
-void error_store(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp, uint32_t pc_count);
+void error_store(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp, uint32_t pc_count, int write);
+void error_output();
