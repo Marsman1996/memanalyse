@@ -22,13 +22,13 @@ void input_module(){
     app_pc module_start, module_w_start, module_bss_start, module_end;
     uint32_t has_writed, off, base_off;
     app_pc addr, real_addr, base_addr;
-    while(fgets(line, 100, f_module) != NULL){
+    while(fgets(line, 200, f_module) != NULL){
         s_module_name   = strtok(line, split);
         s_module_start  = strtok(NULL, split);
         s_module_end    = strtok(NULL, split);
         s_module_path   = strtok(NULL, split);
-        module_start    = (app_pc)strtoll(s_module_start, NULL, 16);
-        module_end      = (app_pc)strtoll(s_module_end, NULL, 16);
+        module_start    = (app_pc)strtoul(s_module_start, NULL, 16);
+        module_end      = (app_pc)strtoul(s_module_end, NULL, 16);
 
         if(strcmp(s_module_name, "libc.so.6") == 0){
             mmap1 = (app_pc)((uint32_t)module_start & 0xfff00000);
@@ -43,9 +43,10 @@ void input_module(){
             shadow_special_block_create((app_pc)module_start, (app_pc)module_end, SHADOW_DEFINED);
             continue;
         }
-        char cmd[100];
+        char cmd[200];
         strcpy(cmd, "readelf -S ");
         strcat(cmd, s_module_path);
+        //printf("%s", cmd);
         FILE *pipe;
         pipe = _popen(cmd, "r");
         fgets(elf_line, 100, pipe);//remove useless elf_line
@@ -70,10 +71,10 @@ void input_module(){
             strtok(NULL, split);//size
             strtok(NULL, split);//es
             s_flag = strtok(NULL, split);
-            addr = (app_pc)strtoll(s_addr, NULL, 16);
+            addr = (app_pc)strtoul(s_addr, NULL, 16);
             if(strcmp(s_nr, "1]") == 0){
                 base_addr = addr;
-                base_off = strtoll(s_off, NULL, 16);
+                base_off = strtoul(s_off, NULL, 16);
             }
             real_addr = addr - base_addr + base_off + module_start;
             if(strcmp(s_flag, "WA") == 0 || strcmp(s_flag, "WAT") == 0){
@@ -149,17 +150,17 @@ void input_trace(){
         s_ebp      = strtok(NULL, split);
         s_pc_count = strtok(NULL, split);
         write    = strtol(s_write, NULL, 10);
-        pc       = (app_pc)strtoll(s_pc, NULL, 16);
+        pc       = (app_pc)strtoul(s_pc, NULL, 16);
         size     = (uint32_t)strtol(s_size, NULL, 10);
-        addr     = (app_pc)strtoll(s_addr, NULL, 16);
-        esp      = (app_pc)strtoll(s_esp, NULL, 16);
-        ebp      = (app_pc)strtoll(s_ebp, NULL, 16);
-        pc_count = (uint32_t)strtoll(s_pc_count, NULL, 10);
+        addr     = (app_pc)strtoul(s_addr, NULL, 16);
+        esp      = (app_pc)strtoul(s_esp, NULL, 16);
+        ebp      = (app_pc)strtoul(s_ebp, NULL, 16);
+        pc_count = (uint32_t)strtoul(s_pc_count, NULL, 10);
         alloc_link = alloc_check(pc_count);
         shadow_check(write, s_instr, addr, size, esp, ebp, pc_count, alloc_link);
     }
-    
 }
+
 int main(void){
     shadow_init();
     alloc_init();
@@ -176,6 +177,9 @@ int main(void){
     input_alloc();
     // input trace
     input_trace();
+    // detect memory leak
+    leak_detect();
+    
     error_output();
     return 0;
 }

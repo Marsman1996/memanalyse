@@ -1,5 +1,6 @@
 #include "alloc.h"
 #include "shadow.h"
+#include "error.h"
 
 // alloc_ptr always points to last
 extern alloc_link_t alloc_start;
@@ -27,13 +28,13 @@ void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, c
 
     alloc_temp->routine.is_load = false;
 
-    pc_count = strtoll(s_pc_count, NULL, 10);
+    pc_count = strtoul(s_pc_count, NULL, 10);
     alloc_temp->routine.pc_count = pc_count;
     
-    pc_count2 = strtoll(s_pc_count2, NULL, 10);
+    pc_count2 = strtoul(s_pc_count2, NULL, 10);
     alloc_temp->routine.pc_count2 = pc_count2;    
 
-    addr = (app_pc)strtoll(s_addr, NULL, 16);
+    addr = (app_pc)strtoul(s_addr, NULL, 16);
     alloc_temp->routine.addr = addr;
     
     if(s_size != NULL){
@@ -41,7 +42,7 @@ void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, c
         alloc_temp->routine.size = size;
     }
     if(s_old_addr != NULL){
-        old_addr = (app_pc)strtoll(s_old_addr, NULL, 16);
+        old_addr = (app_pc)strtoul(s_old_addr, NULL, 16);
         alloc_temp->routine.old_addr = old_addr;
     }
 
@@ -97,7 +98,9 @@ entry_link_t entry_lookup(app_pc key){
 void handle_free_post(alloc_routine_t *routine){
     entry_link_t e;
     e = routine->entry_link;
-
+    if(e == NULL){
+        return ;
+    }
     shadow_write_range(e->entry.start - REDZONE_SIZE, e->entry.end + REDZONE_SIZE, SHADOW_UNADDRESSABLE);
     entry_remove(e->entry.start);
 }
@@ -108,10 +111,14 @@ void handle_malloc_post(alloc_routine_t *routine){
 }
 
 void handle_realloc_post(alloc_routine_t *routine){
-    //add routine->old_addr = NULL condition, 相当于malloc
+    //add routine->old_addr == NULL condition, 相当于malloc
     if(routine->old_addr == NULL){
         handle_malloc_post(routine);
         return ;
+    }
+    //add size == 0 condition, 相当于free
+    if(routine->size == 0){
+        handle_free_post(routine);
     }
     entry_link_t e = routine->entry_link;
 
@@ -151,7 +158,9 @@ void handle_free_pre(alloc_routine_t *routine){
     entry_link_t e;
     e = entry_lookup(routine->addr);
     if(e == NULL){
-        assert(false);
+        //assert(false);
+        printf("free error\n");
+        error_store(routine->addr, 0, 0, 0, 0, 0, "free error");
     }
     routine->entry_link = e;
 }
@@ -163,7 +172,7 @@ void handle_malloc_pre(alloc_routine_t *routine){
 void handle_realloc_pre(alloc_routine_t *routine){
     entry_link_t e;
     e = entry_lookup(routine->old_addr);
-    if(e == NULL){
+    if(routine->size == 0 && e == NULL){//free 错误
         assert(false);
     }
     routine->entry_link = e;
@@ -226,5 +235,11 @@ alloc_link_t alloc_check(uint32_t pc_count){
         free(alloc_temp);
         return NULL;
     }
+}
 
+void leak_detect(){
+    entry_link_t entry_temp;
+    for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
+        error_store(entry_temp->entry.start, entry_temp->entry.end - entry_temp->entry.start, NULL, NULL, 0, 1, "memory leak");
+    }
 }
