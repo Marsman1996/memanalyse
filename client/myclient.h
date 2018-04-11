@@ -63,8 +63,6 @@
     }                                                                             \
 } while (0);
 
-#define MAX_NUM_INS_REFS 8192
-#define MEM_BUF_SIZE (sizeof(ins_ref_t) * MAX_NUM_INS_REFS)
 #define MINSERT instrlist_meta_preinsert
 
 
@@ -193,13 +191,6 @@ typedef enum {
     ALLOC_TYPE_NEW_ARRAY,
 } alloc_type_t;
 
-typedef struct {
-    uint32_t size;
-    app_pc ptr;
-    bool lock;
-    bool skip;
-} arg_t;
-
 //Shadow Mem region结构
 typedef struct {
     app_pc start;
@@ -241,24 +232,33 @@ typedef struct _malloc_entry_t {
     void *data;
 } malloc_entry_t;
 
+typedef struct {
+    uint32_t size;
+    app_pc ptr;
+    bool lock;
+    bool skip;
+    malloc_entry_t *e_link;
+} arg_t;
+
 //--------------------------------------------------------------------------------------------
-typedef struct _ins_ref_t {
-    app_pc pc;
-    int opcode;
-    int pc_count;
-    int iswrite;
-    int size;
-    app_pc addr;
+typedef struct _mem_ref_t {
+    ushort size; /* mem ref size */
+    ushort type; /* instr opcode */
+    ushort write;
+    uint32_t pc_count;
+    app_pc eip;
+    app_pc addr; /* mem ref addr */
     app_pc esp;
-    app_pc ebp;
-} ins_ref_t;
+} mem_ref_t;
+
+#define MAX_NUM_MEM_REFS 4096
+#define MEM_BUF_SIZE (sizeof(mem_ref_t) * MAX_NUM_MEM_REFS)
+#define WRT_BUF_SIZE (MAX_NUM_MEM_REFS * 32)
 
 typedef struct {
-    byte      *seg_base;
-    ins_ref_t *buf_base;
     file_t     log;
     FILE      *logf;
-    uint64     num_refs;
+    reg_id_t   reg_addr;
 } per_thread_t;
 
 static void  *mutex;    /* for multithread support */
@@ -269,9 +269,9 @@ enum {
     INSTRACE_TLS_OFFS_BUF_PTR,
     INSTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
-static reg_id_t tls_seg, reg_pc_count;
-static uint     tls_offs, reg_pc_offs;
-static int      tls_idx, reg_pc_idx;
+static reg_id_t reg_pc_count;
+static uint     reg_pc_offs;
+static int      reg_pc_idx;
 #define TLS_SLOT(tls_base, enum_val) (void **)((byte *)(tls_base)+tls_offs+(enum_val))
 #define BUF_PTR(tls_base) *(ins_ref_t **)TLS_SLOT(tls_base, INSTRACE_TLS_OFFS_BUF_PTR)
 

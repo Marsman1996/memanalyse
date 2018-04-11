@@ -80,4 +80,4 @@ uint32_t shadow_value_byte_to_dword(uint32_t val);
 
 void print_for_test(app_pc ptr);
 
-void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, app_pc ebp, uint32_t pc_count, alloc_link_t alloc_link);
+void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, uint32_t content, uint32_t pc_count, alloc_link_t alloc_link);

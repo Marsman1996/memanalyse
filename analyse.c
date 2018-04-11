@@ -132,10 +132,10 @@ void input_trace(){
     if(f_trace == NULL){
         assert(false);
     }
-    char *s_write, *s_pc, *s_instr, *s_size, *s_addr, *s_esp, *s_ebp, *s_pc_count;
+    char *s_write, *s_pc, *s_instr, *s_size, *s_addr, *s_esp, *s_content, *s_pc_count;
     int write;
-    app_pc pc, addr, esp, ebp;
-    uint32_t size, pc_count;
+    app_pc pc, addr, esp;
+    uint32_t size, pc_count, content;
     alloc_link_t alloc_link;
     fgets(line, 100, f_trace);//remove top line
     while(fgets(line, 100, f_trace) != NULL){
@@ -147,17 +147,17 @@ void input_trace(){
         s_size     = strtok(NULL, split);
         s_addr     = strtok(NULL, split);
         s_esp      = strtok(NULL, split);
-        s_ebp      = strtok(NULL, split);
+        s_content  = strtok(NULL, split);
         s_pc_count = strtok(NULL, split);
         write    = strtol(s_write, NULL, 10);
         pc       = (app_pc)strtoul(s_pc, NULL, 16);
         size     = (uint32_t)strtol(s_size, NULL, 10);
         addr     = (app_pc)strtoul(s_addr, NULL, 16);
         esp      = (app_pc)strtoul(s_esp, NULL, 16);
-        ebp      = (app_pc)strtoul(s_ebp, NULL, 16);
+        content  = strtoul(s_content, NULL, 16);
         pc_count = (uint32_t)strtoul(s_pc_count, NULL, 10);
         alloc_link = alloc_check(pc_count);
-        shadow_check(write, s_instr, addr, size, esp, ebp, pc_count, alloc_link);
+        shadow_check(write, s_instr, addr, size, esp, content, pc_count, alloc_link);
     }
 }
 

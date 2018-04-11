@@ -240,6 +240,6 @@ alloc_link_t alloc_check(uint32_t pc_count){
 void leak_detect(){
     entry_link_t entry_temp;
     for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
-        error_store(entry_temp->entry.start, entry_temp->entry.end - entry_temp->entry.start, NULL, NULL, 0, 1, "memory leak");
+        error_store(entry_temp->entry.start, entry_temp->entry.end - entry_temp->entry.start, NULL, 0, 0, 1, "memory leak");
     }
 }

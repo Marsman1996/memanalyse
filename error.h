@@ -20,11 +20,11 @@ typedef struct {
     uint32_t pc_count;
     app_pc app_addr;
     app_pc real_esp; 
-    app_pc real_ebp;
+    uint32_t content;
     uint32_t size;
     int write;
     char ename[20];
 } error_store_t;
 
-void error_store(app_pc app_addr, uint32_t size, app_pc real_esp, app_pc real_ebp, uint32_t pc_count, int write, char *error_name);
+void error_store(app_pc app_addr, uint32_t size, app_pc real_esp, uint32_t content, uint32_t pc_count, int write, char *error_name);
 void error_output();
