@@ -43,6 +43,7 @@ typedef struct _malloc_entry_t {
     //alloc_type_t alloc_type;
     app_pc aligned_start;
     app_pc aligned_end;
+    app_pc ptr[256];
 } malloc_entry_t;
 
 

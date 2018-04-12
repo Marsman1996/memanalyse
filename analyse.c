@@ -2,10 +2,11 @@
 #include "shadow.h"
 #include "alloc.h"
 #include "error.h"
-
+#include "check.h"
 alloc_link_t alloc_start;
 
 app_pc mmap1, mmap2, mmap3, mmap4;
+app_pc exe_start, exe_end;
 
 void input_module(){
     FILE *f_module;
@@ -22,6 +23,7 @@ void input_module(){
     app_pc module_start, module_w_start, module_bss_start, module_end;
     uint32_t has_writed, off, base_off;
     app_pc addr, real_addr, base_addr;
+    bool is_first = true;
     while(fgets(line, 200, f_module) != NULL){
         s_module_name   = strtok(line, split);
         s_module_start  = strtok(NULL, split);
@@ -30,6 +32,12 @@ void input_module(){
         module_start    = (app_pc)strtoul(s_module_start, NULL, 16);
         module_end      = (app_pc)strtoul(s_module_end, NULL, 16);
 
+        if(is_first == true){
+            exe_start = module_start;
+            exe_end   = module_end;
+            is_first  = false;
+        }
+        //为了排除libc附近的读写操作: 可能是mmap?
         if(strcmp(s_module_name, "libc.so.6") == 0){
             mmap1 = (app_pc)((uint32_t)module_start & 0xfff00000);
             mmap2 = module_start;
@@ -38,7 +46,7 @@ void input_module(){
         if(strcmp(s_module_name, "libmyclient.so") == 0){
             mmap4 = module_start;
         }
-
+        //排除虚拟动态共享库 (virtual dynamic shared library)
         if(strcmp(s_module_path, "[vdso]\n") == 0){
             shadow_special_block_create((app_pc)module_start, (app_pc)module_end, SHADOW_DEFINED);
             continue;
@@ -157,7 +165,7 @@ void input_trace(){
         content  = strtoul(s_content, NULL, 16);
         pc_count = (uint32_t)strtoul(s_pc_count, NULL, 10);
         alloc_link = alloc_check(pc_count);
-        shadow_check(write, s_instr, addr, size, esp, content, pc_count, alloc_link);
+        check(write, pc, s_instr, addr, size, esp, content, pc_count, alloc_link);
     }
 }
 

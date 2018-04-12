@@ -24,12 +24,12 @@ void error_output(){
     }
     int i;
     for(i = 0; i < error_num; i++){
-        fprintf(error_file, "%8u ", error_list[i].pc_count); 
+        fprintf(error_file, "%u ", error_list[i].write);         
+        fprintf(error_file, "%2u ", error_list[i].size); 
         fprintf(error_file, "0x%08x ", (uint32_t)error_list[i].app_addr); 
         fprintf(error_file, "0x%08x ", (uint32_t)error_list[i].real_esp); 
         fprintf(error_file, "%08x ", error_list[i].content);
-        fprintf(error_file, "%u ", error_list[i].write);         
-        fprintf(error_file, "%u ", error_list[i].size); 
+        fprintf(error_file, "%8u ", error_list[i].pc_count); 
         fprintf(error_file, "%s\n", error_list[i].ename);
     }
 }

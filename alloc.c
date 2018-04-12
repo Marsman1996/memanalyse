@@ -5,6 +5,7 @@
 // alloc_ptr always points to last
 extern alloc_link_t alloc_start;
 alloc_link_t alloc_ptr;
+//entry是现在存在的内存块
 entry_link_t entry_start;
 
 void alloc_init(){

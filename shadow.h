@@ -27,8 +27,6 @@
 
 #define SHADOW_TABLE_INDEX(addr) ((uint32_t)(addr) >> APP_BLOCK_BITS)
 
-#define MAX_STACK 512
-
 typedef struct {
     byte *start;
     byte *end;
@@ -79,5 +77,3 @@ app_pc shadow_table_app_to_shadow(uint32_t addr);
 uint32_t shadow_value_byte_to_dword(uint32_t val);
 
 void print_for_test(app_pc ptr);
-
-void shadow_check(uint32_t write, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, uint32_t content, uint32_t pc_count, alloc_link_t alloc_link);
