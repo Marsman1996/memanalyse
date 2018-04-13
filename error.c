@@ -31,5 +31,6 @@ void error_output(){
         fprintf(error_file, "%08x ", error_list[i].content);
         fprintf(error_file, "%8u ", error_list[i].pc_count); 
         fprintf(error_file, "%s\n", error_list[i].ename);
+        printf("%u %2u 0x%08x 0x%08x %08x %8u %s\n", error_list[i].write, error_list[i].size, error_list[i].app_addr, error_list[i].real_esp, error_list[i].content, error_list[i].pc_count, error_list[i].ename);
     }
 }

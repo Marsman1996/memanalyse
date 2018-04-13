@@ -5,8 +5,10 @@
 // alloc_ptr always points to last
 extern alloc_link_t alloc_start;
 alloc_link_t alloc_ptr;
-//entry是现在存在的内存块
+//entry_start是现在存在的内存块
 entry_link_t entry_start;
+//junk_start是被free的内存块
+entry_link_t junk_start;
 
 void alloc_init(){
     alloc_start = (alloc_link_t)malloc(sizeof(alloc_node_t));
@@ -16,6 +18,10 @@ void alloc_init(){
     entry_start = (entry_link_t)malloc(sizeof(entry_node_t));
     entry_start->key = NULL;
     entry_start->next = NULL;
+
+    junk_start = (entry_link_t)malloc(sizeof(entry_node_t));
+    junk_start->key = NULL;
+    junk_start->next = NULL;
 }
 
 void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, char *s_addr, char *s_size, char *s_old_addr){
@@ -58,6 +64,7 @@ entry_link_t malloc_entry_add(app_pc start, app_pc end){
     e->key = start;
     e->entry.start = start;
     e->entry.end = end;
+    e->entry.ptr[0] = 0;
     // about aligned: min:16; align:8
     uint32_t aligned_size;
     aligned_size = ((end - start + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(end - start + 2 * REDZONE_SIZE + 4), 8);
@@ -75,12 +82,16 @@ entry_link_t malloc_entry_add(app_pc start, app_pc end){
 
 bool entry_remove(app_pc key){
     entry_link_t entry_temp, entry_last;
+    entry_link_t junk_temp;
     for(entry_temp = entry_start->next, entry_last = entry_start; 
     entry_temp != NULL; 
     entry_temp = entry_temp->next, entry_last = entry_last->next){
         if(entry_temp->key == key){
             entry_last->next = entry_temp->next;
-            free(entry_temp);
+            for(junk_temp = junk_start; junk_temp->next != NULL; junk_temp = junk_temp->next)
+                ;//找到链表末尾
+            junk_temp->next = entry_temp;
+            //free(entry_temp);
             return true;
         }
     }

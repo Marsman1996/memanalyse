@@ -1,19 +1,63 @@
 #include "check.h"
 #include "shadow.h"
+#include "error.h"
 
 extern app_pc mmap1, mmap2, mmap3, mmap4;
 extern app_pc exe_start, exe_end;
 extern entry_link_t entry_start;
+extern entry_link_t junk_start;
 //TODO:完善check read和check write
 static app_pc eip_store;
 static app_pc eip_stack[MAX_STACK] = {0};
 static app_pc last_esp;
 
+void remove_ptr(app_pc app_addr){
+    entry_link_t entry_temp;
+    uint32_t i, j;
+
+    for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
+        for(i = 1; i <= (uint32_t)(entry_temp->entry.ptr[0]); i++){
+            if(app_addr == entry_temp->entry.ptr[i]){
+                for(j = i; j < (uint32_t)(entry_temp->entry.ptr[0]); j++){
+                    entry_temp->entry.ptr[j] = entry_temp->entry.ptr[j + 1];
+                }
+                entry_temp->entry.ptr[0]--;
+            }
+        }
+    }
+
+    for(entry_temp = junk_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
+        for(i = 1; i <= (uint32_t)(entry_temp->entry.ptr[0]); i++){
+            if(app_addr == entry_temp->entry.ptr[i]){
+                for(j = i; j < (uint32_t)(entry_temp->entry.ptr[0]); j++){
+                    entry_temp->entry.ptr[j] = entry_temp->entry.ptr[j + 1];
+                }
+                entry_temp->entry.ptr[0]--;
+            }
+        }
+    }
+}
+
 void add_ptr(app_pc pc, app_pc app_addr, uint32_t content){
     if(exe_start <= pc && pc < exe_end){
         entry_link_t entry_temp;
         for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
-            
+            if(content == entry_temp->entry.start){
+                entry_temp->entry.ptr[++(uint32_t)(entry_temp->entry.ptr[0])] = app_addr;
+            }
+        }
+    }
+}
+
+void check_ptr(app_pc app_addr, uint32_t size, app_pc esp, uint32_t content, uint32_t pc_count){
+    entry_link_t entry_temp;
+    uint32_t i, j;
+    
+    for(entry_temp = junk_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
+        for(i = 1; i <= (uint32_t)(entry_temp->entry.ptr[0]); i++){
+            if(app_addr == entry_temp->entry.ptr[i]){
+                error_store(app_addr, size, esp, content, pc_count, 0, "use after free");
+            }
         }
     }
 }
@@ -31,6 +75,8 @@ bool is_in_eip(app_pc app_addr){
 void check_read(app_pc pc, app_pc app_addr, uint32_t size, app_pc real_esp, uint32_t content, uint32_t pc_count){
     uint32_t i;
     uint32_t shadow_value;
+    
+    check_ptr(app_addr, size, real_esp, content, pc_count);
     
     for(i = 0; i < size; i++){
         if (app_addr >= real_esp) {
@@ -56,6 +102,7 @@ void check_write(app_pc pc, app_pc app_addr, uint32_t size, app_pc real_esp, uin
     uint32_t i;
     uint32_t shadow_value;
     
+    remove_ptr(app_addr);
     add_ptr(pc, app_addr, content);
 
     for(i = 0; i < size; i++){
