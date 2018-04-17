@@ -164,7 +164,7 @@ void input_trace(){
         esp      = (app_pc)strtoul(s_esp, NULL, 16);
         content  = strtoul(s_content, NULL, 16);
         pc_count = (uint32_t)strtoul(s_pc_count, NULL, 10);
-        if (pc_count == 82478) {
+        if (pc_count == 243651) {
             printf("%d\n", pc_count);
         }
         alloc_link = alloc_check(pc_count);

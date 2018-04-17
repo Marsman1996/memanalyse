@@ -91,6 +91,7 @@ bool entry_remove(app_pc key){
             for(junk_temp = junk_start; junk_temp->next != NULL; junk_temp = junk_temp->next)
                 ;//找到链表末尾
             junk_temp->next = entry_temp;
+            entry_temp->next = NULL;
             //free(entry_temp);
             return true;
         }
