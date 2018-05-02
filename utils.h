@@ -38,14 +38,11 @@ typedef uint32_t* bitmap_t;
 
 typedef struct _malloc_entry_t {
     app_pc start;
-    //app_pc real_start;
     app_pc end;
-    //alloc_type_t alloc_type;
     app_pc aligned_start;
     app_pc aligned_end;
     app_pc ptr[256];
 } malloc_entry_t;
-
 
 typedef struct _entry_node_t{
     malloc_entry_t entry;

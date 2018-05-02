@@ -92,7 +92,6 @@ bool entry_remove(app_pc key){
                 ;//找到链表末尾
             junk_temp->next = entry_temp;
             entry_temp->next = NULL;
-            //free(entry_temp);
             return true;
         }
     }
@@ -104,6 +103,15 @@ entry_link_t entry_lookup(app_pc key){
     for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
         if(entry_temp->key == key)
             return entry_temp;
+    }
+    return NULL;
+}
+
+entry_link_t junk_entry_lookup(app_pc key){
+    entry_link_t junk_temp;
+    for(junk_temp = junk_start->next; junk_temp != NULL; junk_temp = junk_temp->next){
+        if(junk_temp->key == key)
+            return junk_temp;
     }
     return NULL;
 }
@@ -171,9 +179,15 @@ void handle_free_pre(alloc_routine_t *routine){
     entry_link_t e;
     e = entry_lookup(routine->addr);
     if(e == NULL){
-        //assert(false);
-        printf("free error\n");
-        error_store(routine->addr, 0, 0, 0, 0, 0, "free error");
+        if(junk_entry_lookup(routine->addr) == NULL){
+            printf("free error\n");
+            error_store(routine->addr, 0, 0, 0, 0, 0, "double free");
+        }
+        else{
+            //assert(false);
+            printf("free error\n");
+            error_store(routine->addr, 0, 0, 0, 0, 0, "free error");
+        }
     }
     routine->entry_link = e;
 }

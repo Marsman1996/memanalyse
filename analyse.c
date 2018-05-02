@@ -6,7 +6,7 @@
 alloc_link_t alloc_start;
 
 app_pc mmap1, mmap2, mmap3, mmap4;
-app_pc exe_start, exe_end;
+app_pc exe_start, exe_bss, exe_end;
 
 void input_module(){
     FILE *f_module;
@@ -35,7 +35,7 @@ void input_module(){
         if(is_first == true){
             exe_start = module_start;
             exe_end   = module_end;
-            is_first  = false;
+            //is_first  = false;
         }
         //为了排除libc附近的读写操作: 可能是mmap?
         if(strcmp(s_module_name, "libc.so.6") == 0){
@@ -92,10 +92,18 @@ void input_module(){
                 }
                 if(strcmp(s_name, ".bss") == 0){
                     printf("bss here\n");
+                    module_bss_start = real_addr;
                 }
             }
         }
         shadow_special_block_create((app_pc)module_start, (app_pc)module_w_start, SHADOW_DEFINED);
+        if (is_first == true) {
+            exe_bss = module_bss_start;
+            shadow_write_range((app_pc)module_w_start, (app_pc)exe_bss, SHADOW_DEFINED);
+            shadow_write_range((app_pc)exe_bss, (app_pc)module_end, SHADOW_UNDEFINED);
+            is_first = false;
+            continue;
+        }
         shadow_write_range((app_pc)module_w_start, (app_pc)module_end, SHADOW_DEFINED);
     }
 
@@ -164,7 +172,7 @@ void input_trace(){
         esp      = (app_pc)strtoul(s_esp, NULL, 16);
         content  = strtoul(s_content, NULL, 16);
         pc_count = (uint32_t)strtoul(s_pc_count, NULL, 10);
-        if (pc_count == 243651) {
+        if (pc_count == 309839) {
             printf("%d\n", pc_count);
         }
         alloc_link = alloc_check(pc_count);
