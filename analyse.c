@@ -5,7 +5,8 @@
 #include "check.h"
 alloc_link_t alloc_start;
 
-app_pc mmap1, mmap2, mmap3, mmap4;
+app_pc mmap_start;
+app_pc mmap_end = 0x0;
 app_pc exe_start, exe_bss, exe_end;
 
 void input_module(){
@@ -37,15 +38,12 @@ void input_module(){
             exe_end   = module_end;
             //is_first  = false;
         }
-        //为了排除libc附近的读写操作: 可能是mmap?
-        if(strcmp(s_module_name, "libc.so.6") == 0){
-            mmap1 = (app_pc)((uint32_t)module_start & 0xfff00000);
-            mmap2 = module_start;
-            mmap3 = module_end;
-        }
-        if(strcmp(s_module_name, "libmyclient.so") == 0){
-            mmap4 = module_start;
-        }
+        //为了排除(可能是mmap?)读写操作: 
+        if(mmap_end < module_end)
+            mmap_end = (app_pc)module_end;
+        if(strcmp(s_module_name, "libc.so.6") == 0)
+            mmap_start = (app_pc)((uint32_t)module_start & 0xff000000);
+
         //排除虚拟动态共享库 (virtual dynamic shared library)
         if(strcmp(s_module_path, "[vdso]\n") == 0){
             shadow_special_block_create((app_pc)module_start, (app_pc)module_end, SHADOW_DEFINED);

@@ -10,6 +10,9 @@ entry_link_t entry_start;
 //junk_start是被free的内存块
 entry_link_t junk_start;
 
+app_pc heapmem_start = 0xffffffff;
+app_pc heapmem_end = 0x00000000;
+
 void alloc_init(){
     alloc_start = (alloc_link_t)malloc(sizeof(alloc_node_t));
     alloc_start->next = NULL;
@@ -47,6 +50,18 @@ void alloc_routine_in(char *s_alloc_name, char *s_pc_count, char *s_pc_count2, c
     if(s_size != NULL){
         size = strtol(s_size, NULL, 10);
         alloc_temp->routine.size = size;
+
+        // about aligned: min:16; align:8
+        uint32_t aligned_size;
+        app_pc aligned_start;
+        app_pc aligned_end;
+        aligned_size = ((size + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(size + 2 * REDZONE_SIZE + 4), 8);
+        aligned_start = addr - REDZONE_SIZE - 4;
+        aligned_end   = addr - REDZONE_SIZE + aligned_size;
+        if(aligned_start < heapmem_start)
+            heapmem_start = aligned_start;
+        if(heapmem_end < aligned_end)
+            heapmem_end = aligned_end;
     }
     if(s_old_addr != NULL){
         old_addr = (app_pc)strtoul(s_old_addr, NULL, 16);
@@ -65,11 +80,7 @@ entry_link_t malloc_entry_add(app_pc start, app_pc end){
     e->entry.start = start;
     e->entry.end = end;
     e->entry.ptr[0] = 0;
-    // about aligned: min:16; align:8
-    uint32_t aligned_size;
-    aligned_size = ((end - start + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(end - start + 2 * REDZONE_SIZE + 4), 8);
-    e->entry.aligned_start = start - REDZONE_SIZE - 4;
-    e->entry.aligned_end   = start - REDZONE_SIZE + aligned_size;
+        
     e->next = NULL;
     //e->alloc_type = alloc_type;
     //e->data = NULL;
@@ -179,7 +190,7 @@ void handle_free_pre(alloc_routine_t *routine){
     entry_link_t e;
     e = entry_lookup(routine->addr);
     if(e == NULL){
-        if(junk_entry_lookup(routine->addr) == NULL){
+        if(junk_entry_lookup(routine->addr) != NULL){
             printf("free error\n");
             error_store(routine->addr, 0, 0, 0, 0, 0, "double free");
         }

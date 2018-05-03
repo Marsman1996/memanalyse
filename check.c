@@ -2,8 +2,9 @@
 #include "shadow.h"
 #include "error.h"
 
-extern app_pc mmap1, mmap2, mmap3, mmap4;
+extern app_pc mmap_start, mmap_end;
 extern app_pc exe_start, exe_bss, exe_end;
+extern app_pc heapmem_start, heapmem_end;
 extern entry_link_t entry_start;
 extern entry_link_t junk_start;
 //TODO:完善check read和check write
@@ -97,8 +98,9 @@ void check_read(app_pc pc, app_pc app_addr, uint32_t size, app_pc real_esp, uint
                 error_store(app_addr, size, real_esp, content, pc_count, 0, "undef global val");
                 return ;
             }
-            error_store(app_addr, size, real_esp, content, pc_count, 0, "read undefined");
-            return ;
+            //error_store(app_addr, size, real_esp, content, pc_count, 0, "read undefined");
+            //return ;
+            continue;
         }
     }
 }
@@ -142,55 +144,20 @@ void check_write(app_pc pc, app_pc app_addr, uint32_t size, app_pc real_esp, uin
 }
 
 void check(uint32_t write, app_pc pc, const char *instr, app_pc app_addr, uint32_t size, app_pc esp, uint32_t content, uint32_t pc_count, alloc_link_t alloc_link){
+    bool j_mark = false;
     //TODO:暂时排除mmap(maybe)区域读写
     //TODO: 只能排除库函数部分的检查
+    if(mmap_start <= app_addr && app_addr < mmap_end)
+        j_mark = true;
+
     //TODO: 在内存分配函数时跳过所有检查
     //排除alloc操作head读写
-    bool j_mark = false;
-    // if((app_addr < mmap2 && app_addr >= mmap1) 
-    // || (app_addr < mmap4 && app_addr >= mmap3))
-    //     j_mark = true;
     if(alloc_link != NULL 
-    && alloc_link->routine.is_load == true 
-    && alloc_link->routine.entry_link != NULL){
-        if(strcmp(alloc_link->routine.name, "realloc") == 0){
-            uint32_t aligned_size;
-            aligned_size = ((alloc_link->routine.size + 2 * REDZONE_SIZE + 4) < 16) ? 16 : ALIGN_FORWARD((uint32_t)(alloc_link->routine.size + 2 * REDZONE_SIZE + 4), 8);
-
-            if((app_addr < 
-            alloc_link->routine.entry_link->entry.aligned_end
-            &&
-            app_addr >=
-            alloc_link->routine.entry_link->entry.aligned_start)
-            ||
-            (app_addr <
-            alloc_link->routine.addr - REDZONE_SIZE + aligned_size
-            &&
-            app_addr >=
-            alloc_link->routine.addr - REDZONE_SIZE - 4 )
-            ){
-                j_mark = true;
-            }
-        }
-        else{
-            if(app_addr < 
-            alloc_link->routine.entry_link->entry.aligned_end
-            &&
-            app_addr >=
-            alloc_link->routine.entry_link->entry.aligned_start){
-                j_mark = true;
-            }
-        }
+    && alloc_link->routine.is_load == true){
+        if(heapmem_start <= app_addr && app_addr < heapmem_end)
+            j_mark = true;
     }
-    if(alloc_link != NULL && alloc_link->routine.entry_link == NULL){
-        if(app_addr < 
-            alloc_link->routine.addr - REDZONE_SIZE + 16
-            &&
-            app_addr >=
-            alloc_link->routine.addr - REDZONE_SIZE - 4){
-                j_mark = true;
-            }
-    }
+    
     //check
     if(j_mark != true){
         if (write == 1)
