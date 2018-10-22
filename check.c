@@ -40,11 +40,14 @@ void remove_ptr(app_pc app_addr){
 }
 
 void add_ptr(app_pc pc, app_pc app_addr, uint32_t content){
+    uint32_t i;
     if(exe_start <= pc && pc < exe_end){
         entry_link_t entry_temp;
         for(entry_temp = entry_start->next; entry_temp != NULL; entry_temp = entry_temp->next){
             if(content == (uint32_t)entry_temp->entry.start){
-                entry_temp->entry.ptr[++(uint32_t)(entry_temp->entry.ptr[0])] = app_addr;
+                entry_temp->entry.ptr[0] = entry_temp->entry.ptr[0] + 1;
+                i = (uint32_t)(entry_temp->entry.ptr[0]);
+                entry_temp->entry.ptr[i] = app_addr;
             }
         }
     }
